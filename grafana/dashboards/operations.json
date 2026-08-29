@@ -1,0 +1,239 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Request Rate (req/s)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(llm_gateway_requests_total[1m])) by (provider)",
+          "legendFormat": "{{provider}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "title": "Error Rate % (Threshold: 5%)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(llm_gateway_requests_total{status_code=~\"5..\"}[1m])) / sum(rate(llm_gateway_requests_total[1m])) * 100",
+          "legendFormat": "System Error Rate",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "title": "Request Latency Percentiles (p50/p95/p99)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum(rate(llm_gateway_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "p50 Latency (ms)",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum(rate(llm_gateway_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "p95 Latency (ms)",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum(rate(llm_gateway_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "p99 Latency (ms)",
+          "range": true,
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "title": "Circuit Breaker State (0=Closed, 1=Half-Open, 2=Open)",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "llm_gateway_circuit_breaker_state",
+          "legendFormat": "{{provider}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "CLOSED",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "HALF-OPEN",
+                  "color": "yellow"
+                },
+                "2": {
+                  "text": "OPEN",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "title": "Fallback Activation Rate",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(llm_gateway_fallback_requests_total[1m])) by (fallback_provider)",
+          "legendFormat": "Fallback to {{fallback_provider}}",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["llm-gateway"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s"
+    ]
+  },
+  "timezone": "",
+  "title": "LLM Gateway - Operations",
+  "version": 1,
+  "weekStart": ""
+}

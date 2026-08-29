@@ -1,0 +1,182 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Gateway Logic Overhead (ms) — Claim: <10ms",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum(rate(llm_gateway_overhead_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "p95 Gateway Overhead (ms)",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum(rate(llm_gateway_overhead_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "p50 Gateway Overhead (ms)",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "title": "Live Provider Latency (ms) — showing p50 vs p95 gap",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum(rate(llm_gateway_request_duration_seconds_bucket[5m])) by (le, provider)) * 1000",
+          "legendFormat": "{{provider}} — p95",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum(rate(llm_gateway_request_duration_seconds_bucket[5m])) by (le, provider)) * 1000",
+          "legendFormat": "{{provider}} — p50",
+          "range": true,
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "title": "Token Throughput (tokens/s)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(llm_gateway_tokens_total[1m])) by (token_type)",
+          "legendFormat": "{{token_type}} tokens",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "title": "Rate Limit Rejections by Team",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(llm_gateway_rate_limit_rejections_total[1m])) by (team_id, rejection_type)",
+          "legendFormat": "Team {{team_id}} — {{rejection_type}} blocked",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["llm-gateway"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s"
+    ]
+  },
+  "timezone": "",
+  "title": "LLM Gateway - Performance",
+  "version": 1,
+  "weekStart": ""
+}

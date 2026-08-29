@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 2s # DEMO ONLY: set to 15s during heavy load tests to avoid scrape overhead distorting gateway latency
+  evaluation_interval: 2s
+
+scrape_configs:
+  - job_name: 'llm-gateway'
+    static_configs:
+      # gateway:8000 for docker compose, host.docker.internal:8000 for local dev server
+      - targets: ['gateway:8000', 'host.docker.internal:8000']

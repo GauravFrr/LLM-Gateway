@@ -1,0 +1,178 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Total Spend (Accumulated)",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(llm_gateway_spend_usd_total)",
+          "legendFormat": "Spend",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 6,
+        "w": 16,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "title": "Accumulated Spend by Team",
+      "type": "barchart",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(llm_gateway_spend_usd_total) by (team_id)",
+          "legendFormat": "Team {{team_id}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 0,
+        "y": 6
+      },
+      "id": 3,
+      "title": "Spend Share by Provider",
+      "type": "piechart",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(llm_gateway_spend_usd_total) by (provider)",
+          "legendFormat": "{{provider}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 14,
+        "x": 10,
+        "y": 6
+      },
+      "id": 4,
+      "title": "Teams Approaching Budget (>=80% usage)",
+      "type": "table",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "llm_gateway_team_budget_usage_ratio",
+          "legendFormat": "{{team_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "displayMode": "color-background-solid"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 0.8
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["llm-gateway"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s"
+    ]
+  },
+  "timezone": "",
+  "title": "LLM Gateway - Business",
+  "version": 1,
+  "weekStart": ""
+}

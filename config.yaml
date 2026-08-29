@@ -1,0 +1,19 @@
+teams:
+  - name: "team-search"
+    api_key: "team-search-token-12345"  # For easy local testing / seeding
+    monthly_budget_usd: 50.00
+    priority_tier: "high"
+    model_access:
+      - tier: "fast"
+        primary: {provider: "groq", model: "openai/gpt-oss-20b"}
+        fallback: {provider: "gemini", model: "gemini-3.6-flash"}
+        rate_limit_rpm: 100
+        rate_limit_tpm: 50000
+      - tier: "balanced"
+        primary: {provider: "gemini", model: "gemini-3.6-flash"}
+        rate_limit_rpm: 50
+        rate_limit_tpm: 25000
+      - tier: "quality"
+        primary: {provider: "claude", model: "claude-3-5-sonnet-20241022"}
+        rate_limit_rpm: 20
+        rate_limit_tpm: 20000
