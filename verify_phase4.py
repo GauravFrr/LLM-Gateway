@@ -29,15 +29,15 @@ def run_traffic_generation():
     base_url = "http://127.0.0.1:8000"
     admin_headers = {"Authorization": "Bearer abcd", "Content-Type": "application/json"}
 
-    # Clear ALL circuit breaker states to start clean
-    print("\n0. Clearing ALL circuit breaker states...")
-    for provider in ["groq", "gemini", "claude", "ollama"]:
-        r.delete(
-            f"circuit:{provider}:state",
-            f"circuit:{provider}:failures",
-            f"circuit:{provider}:cooldown_end"
-        )
-    print("   Done.")
+    # Clear ALL circuit breaker states via admin reset endpoint
+    print("\n0. Resetting ALL circuit breaker states via Admin API...")
+    status, reset_data, _ = make_request(
+        f"{base_url}/admin/circuits/reset", "POST", admin_headers
+    )
+    if status == 200:
+        print(f"   Done: {reset_data.get('message')}")
+    else:
+        print(f"   Warning: failed to reset circuits: {reset_data}")
 
     # 1. Create test team with RPM=1 to guarantee 429 on back-to-back requests
     team_name = f"team-obs-{int(time.time())}"

@@ -39,7 +39,7 @@ FALLBACK_COUNT = Counter(
 TEAM_SPEND = Counter(
     "llm_gateway_spend_usd_total",
     "Total spend in USD",
-    ["team_id", "provider"]
+    ["team_id", "team_name", "provider"]
 )
 
 # 7. Token throughput count (Counter)
@@ -53,7 +53,7 @@ TOKEN_COUNT = Counter(
 RATE_LIMIT_REJECTION = Counter(
     "llm_gateway_rate_limit_rejections_total",
     "Total rate limit rejections",
-    ["team_id", "logical_tier", "rejection_type"]
+    ["team_id", "team_name", "logical_tier", "rejection_type"]
 )
 
 # 9. Team monthly budget usage ratio (Gauge: spend/budget)

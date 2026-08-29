@@ -171,7 +171,7 @@ async def chat_completions(
             
             if status_code == "200" and prov:
                 if cost_usd > 0.0:
-                    TEAM_SPEND.labels(team_id=str(team.id), provider=prov).inc(cost_usd)
+                    TEAM_SPEND.labels(team_id=str(team.id), team_name=team.name, provider=prov).inc(cost_usd)
                 if input_tokens > 0:
                     TOKEN_COUNT.labels(team_id=str(team.id), provider=prov, token_type="input").inc(input_tokens)
                 if output_tokens > 0:
@@ -234,6 +234,36 @@ async def chat_completions(
             # Record failure against primary circuit breaker if it's not a rate limit
             if getattr(e, "trips_circuit", True):
                 await primary_cb.record_failure(str(e), db)
+            
+            # Record failed primary attempt in metrics
+            prov_code = "502"
+            from app.providers.base import ProviderRateLimitError
+            if isinstance(e, ProviderRateLimitError):
+                prov_code = "429"
+            
+            primary_duration = time.perf_counter() - prov_start
+            provider_duration += primary_duration
+            
+            try:
+                from app.observability.metrics import REQUEST_LATENCY, REQUEST_COUNT
+                REQUEST_LATENCY.labels(
+                    provider=primary_provider,
+                    model=primary_model,
+                    status_code=prov_code,
+                    team_id=str(team.id),
+                    was_fallback="False"
+                ).observe(primary_duration)
+                
+                REQUEST_COUNT.labels(
+                    provider=primary_provider,
+                    model=primary_model,
+                    status_code=prov_code,
+                    team_id=str(team.id),
+                    was_fallback="False"
+                ).inc()
+            except Exception as metric_err:
+                logger.error("metrics_error_recording_failed_primary", error=str(metric_err))
+
             attempt_primary = False
     else:
         logger.info(

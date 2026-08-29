@@ -150,8 +150,8 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(llm_gateway_rate_limit_rejections_total[1m])) by (team_id, rejection_type)",
-          "legendFormat": "Team {{team_id}} — {{rejection_type}} blocked",
+          "expr": "sum(rate(llm_gateway_rate_limit_rejections_total[1m])) by (team_name, rejection_type)",
+          "legendFormat": "{{team_name}} — {{rejection_type}} blocked",
           "range": true,
           "refId": "A"
         }

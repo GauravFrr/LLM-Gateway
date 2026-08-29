@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.config import settings
-from app.db.session import get_db
-from app.models.db import Team, TeamModelAccess
+from app.db.session import get_db, get_redis
+from app.models.db import Team, TeamModelAccess, ProviderHealthEvent
 from app.models.schemas import (
     TeamCreateRequest,
     TeamResponse,
@@ -138,3 +138,53 @@ async def create_or_update_model_access(
     logger.info("model_access_configured", team_id=str(id), tier=body.logical_tier)
     
     return access
+
+
+@router.post("/circuits/reset", dependencies=[Depends(require_admin)])
+async def reset_circuits(db: AsyncSession = Depends(get_db), redis_client = Depends(get_redis)):
+    """
+    Resets circuit breaker states for all providers in Redis, updates Prometheus gauges in-memory,
+    and logs the reset event to the database.
+    """
+    from app.observability.metrics import CIRCUIT_STATE
+    from datetime import datetime, timezone
+    
+    providers = ["groq", "gemini", "claude", "ollama"]
+    
+    for provider in providers:
+        state_key = f"circuit:{provider}:state"
+        failures_key = f"circuit:{provider}:failures"
+        cooldown_end_key = f"circuit:{provider}:cooldown_end"
+        
+        # Clear keys in Redis
+        try:
+            await redis_client.delete(state_key, failures_key, cooldown_end_key)
+        except Exception as e:
+            logger.error("redis_error_during_reset", provider=provider, error=str(e))
+            
+        # Update Prometheus gauge in memory
+        try:
+            CIRCUIT_STATE.labels(provider=provider).set(0)
+        except Exception as e:
+            logger.error("metrics_error_during_reset", provider=provider, error=str(e))
+            
+        # Log to PostgreSQL
+        try:
+            event = ProviderHealthEvent(
+                provider=provider,
+                event_type="circuit_closed",
+                reason="Manual admin reset request",
+                created_at=datetime.now(timezone.utc)
+            )
+            db.add(event)
+        except Exception as e:
+            logger.error("postgres_error_during_reset", provider=provider, error=str(e))
+            
+    try:
+        await db.commit()
+    except Exception as e:
+        logger.error("db_commit_error_during_reset", error=str(e))
+        await db.rollback()
+        
+    return {"status": "ok", "message": "All circuit states reset to CLOSED."}
+

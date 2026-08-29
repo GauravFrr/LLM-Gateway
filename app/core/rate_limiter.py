@@ -123,6 +123,7 @@ async def check_rate_limit(
             ).inc()
             RATE_LIMIT_REJECTION.labels(
                 team_id=str(team.id),
+                team_name=team.name,
                 logical_tier=tier,
                 rejection_type=rejection_type
             ).inc()

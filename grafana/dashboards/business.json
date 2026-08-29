@@ -59,8 +59,8 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(llm_gateway_spend_usd_total) by (team_id)",
-          "legendFormat": "Team {{team_id}}",
+          "expr": "sum(llm_gateway_spend_usd_total) by (team_name)",
+          "legendFormat": "{{team_name}}",
           "range": true,
           "refId": "A"
         }
