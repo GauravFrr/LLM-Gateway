@@ -41,6 +41,10 @@ async def seed_db():
             budget = float(team_data.get("monthly_budget_usd", 50.00))
             priority = team_data.get("priority_tier", "normal")
 
+            import uuid
+            team_id_str = team_data.get("id")
+            team_id = uuid.UUID(team_id_str) if team_id_str else None
+
             # Check if team already exists
             result = await session.execute(select(Team).where(Team.name == name))
             team = result.scalar_one_or_none()
@@ -48,6 +52,7 @@ async def seed_db():
             if not team:
                 # Create new team
                 team = Team(
+                    id=team_id,
                     name=name,
                     api_key_hash=api_key_hash,
                     monthly_budget_usd=budget,

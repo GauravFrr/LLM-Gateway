@@ -37,6 +37,12 @@ class GeminiProvider(BaseProvider):
         Returns:
             Tuple of (assistant_content, input_tokens, output_tokens)
         """
+        from app.config import settings
+        import asyncio
+        if settings.MOCK_PROVIDERS:
+            # Simulate a small provider network latency
+            await asyncio.sleep(0.010)
+            return "This is a mocked Gemini response.", 15, 10
         contents = []
         system_instruction = None
 

@@ -35,6 +35,12 @@ class GroqProvider(BaseProvider):
         Returns:
             Tuple of (assistant_content, input_tokens, output_tokens)
         """
+        from app.config import settings
+        import asyncio
+        if settings.MOCK_PROVIDERS:
+            # Simulate a small provider network latency
+            await asyncio.sleep(0.010)
+            return "This is a mocked Groq response.", 15, 10
         # Format messages for openai-compatible API
         formatted_messages = [
             {"role": msg["role"], "content": msg["content"]}

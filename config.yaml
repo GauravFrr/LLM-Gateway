@@ -1,19 +1,36 @@
 teams:
-  - name: "team-search"
-    api_key: "team-search-token-12345"  # For easy local testing / seeding
-    monthly_budget_usd: 50.00
+  - id: "64696922-2efd-4b41-9858-ead6607f1d86"
+    name: "team-search"
+    api_key: "team-search-token-12345"
+    monthly_budget_usd: 500.00
     priority_tier: "high"
     model_access:
       - tier: "fast"
         primary: {provider: "groq", model: "openai/gpt-oss-20b"}
         fallback: {provider: "gemini", model: "gemini-3.6-flash"}
-        rate_limit_rpm: 100
-        rate_limit_tpm: 50000
+        rate_limit_rpm: 10000
+        rate_limit_tpm: 5000000
+
+  - id: "f19f2a33-4f22-4411-9a9e-1f2e3d4c5b6a"
+    name: "team-analytics"
+    api_key: "team-analytics-token-67890"
+    monthly_budget_usd: 250.00
+    priority_tier: "normal"
+    model_access:
       - tier: "balanced"
         primary: {provider: "gemini", model: "gemini-3.6-flash"}
-        rate_limit_rpm: 50
-        rate_limit_tpm: 25000
+        fallback: {provider: "groq", model: "openai/gpt-oss-20b"}
+        rate_limit_rpm: 5000
+        rate_limit_tpm: 2500000
+
+  - id: "e3d4c5b6-7a8b-9c0d-1e2f-3a4b5c6d7e8f"
+    name: "team-finance"
+    api_key: "team-finance-token-abcde"
+    monthly_budget_usd: 100.00
+    priority_tier: "normal"
+    model_access:
       - tier: "quality"
         primary: {provider: "claude", model: "claude-3-5-sonnet-20241022"}
-        rate_limit_rpm: 20
-        rate_limit_tpm: 20000
+        fallback: {provider: "groq", model: "openai/gpt-oss-20b"}
+        rate_limit_rpm: 1000
+        rate_limit_tpm: 500000

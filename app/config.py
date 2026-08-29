@@ -28,4 +28,7 @@ class Settings(BaseSettings):
     # Admin Auth Configuration
     ADMIN_API_KEY: str = "admin_secret_key_here"
 
+    # Testing & Performance Simulation
+    MOCK_PROVIDERS: bool = False
+
 settings = Settings()
