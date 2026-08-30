@@ -142,6 +142,7 @@ async def chat_completions(
     def record_completed_metrics(status_code: str, prov: str, model_name: str, fallback_used: bool, cost_usd: float = 0.0):
         total_time = time.perf_counter() - start_time
         overhead = total_time - provider_duration
+        response.headers["X-Gateway-Overhead-Ms"] = f"{overhead * 1000:.2f}"
         
         try:
             from app.observability.metrics import (

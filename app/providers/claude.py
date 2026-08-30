@@ -35,6 +35,12 @@ class ClaudeProvider(BaseProvider):
         Returns:
             Tuple of (assistant_content, input_tokens, output_tokens)
         """
+        from app.config import settings
+        import asyncio
+        if settings.MOCK_PROVIDERS:
+            # Simulate a small provider network latency
+            await asyncio.sleep(0.010)
+            return "This is a mocked Claude response.", 15, 10
         # Anthropic does not accept 'system' role in messages.
         # It must be passed separately as the 'system' keyword argument.
         system_parts = [msg["content"] for msg in messages if msg.get("role") == "system"]
