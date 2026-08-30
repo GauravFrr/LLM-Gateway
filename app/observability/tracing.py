@@ -1,11 +1,11 @@
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 # Initialize trace provider
 provider = TracerProvider()
-processor = SimpleSpanProcessor(ConsoleSpanExporter())
+processor = BatchSpanProcessor(ConsoleSpanExporter())
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 

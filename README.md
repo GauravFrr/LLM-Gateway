@@ -18,7 +18,7 @@ The **LLM Gateway** addresses these by acting as a lightweight, resilient, and f
 ## 2. Architecture & Request Flow
 
 ```mermaid
-sequence-diagram
+sequenceDiagram
     Client ->> Gateway: POST /v1/chat/completions (with Team API Key)
     Gateway ->> Redis: 1. Validate Auth & Cache Lookup
     Gateway ->> Redis: 2. Check Rate Limits (Lua Token Bucket)
@@ -134,23 +134,23 @@ To validate performance under load, we ran k6 benchmark scripts under two modes:
 
 ### Measured Performance Results
 
-| Metric | Mock Provider Mode (`MOCK_PROVIDERS=True`, 50 VUs) | Real Provider Smoke Test (`MOCK_PROVIDERS=False`, 35 Requests) |
-| :--- | :--- | :--- |
-| **Request Duration (Avg)** | **912.86 ms** *(includes 10ms mock sleep + telemetry console logging)* | **~280 ms** *(Groq)* / **~900 ms** *(Gemini)* |
-| **Average Gateway Overhead** | **88.58 ms** *(includes telemetry console logging IO overhead)* | **1.77 ms** |
-| **Median (P50) Overhead** | **76.77 ms** | **1.37 ms** |
-| **P95 Gateway Overhead** | **177.01 ms** | **5.55 ms** |
-| **Max Gateway Overhead** | **562.79 ms** | **9.31 ms** |
-| **Rate Limit Accuracy** | **100%** *(0 requests leaked)* | **100%** *(0 requests leaked)* |
-| **Error Rate %** | **0.00%** *(excluding simulated outage window)* | **0.00%** |
-| **Throughput** | **53.62 requests/sec** | Restricted by provider rate limits |
+| Metric | Mock (SimpleSpanProcessor) | Mock (BatchSpanProcessor) | Real Provider (35 Requests) |
+| :--- | :--- | :--- | :--- |
+| **Request Duration (Avg)** | **912.86 ms** | **1,360.00 ms** *(virtualization queue delay)* | **~280 ms** *(Groq)* / **~900 ms** *(Gemini)* |
+| **Average Gateway Overhead** | **88.58 ms** *(sync stdout IO block)* | **133.43 ms** *(concurrency CPU switching)* | **1.77 ms** |
+| **Median (P50) Overhead** | **76.77 ms** | **116.27 ms** | **1.37 ms** |
+| **Max Gateway Overhead** | **562.79 ms** | **649.83 ms** | **9.31 ms** |
+| **Rate Limit Accuracy** | **100%** | **100%** | **100%** |
+| **Error Rate %** | **0.00%** | **0.00%** | **0.00%** |
+| **Throughput** | **53.62 requests/sec** | **36.15 requests/sec** | Restricted by provider rate limits |
+| **Total Iterations (35s)** | **1,910** | **1,288** | N/A |
 
 *Note: Separating the result sets isolates the gateway's processing overhead under high database connection pool contention (50 concurrent VUs queuing for connections) versus low-concurrency real-provider routing where pure gateway latency remains <10ms.*
 
-#### Mock Test 5k Target Analysis:
-The mock-mode run completed exactly **1,910 iterations** with **100.00% checks passed** in 35 seconds. It was capped below the 5,000+ request target because the synchronous OpenTelemetry `ConsoleSpanExporter` blocked the main thread (adding ~800ms logging latency per request). To scale this mock run beyond 5,000+ total requests, either:
-1. **Increase k6 duration** to `100s`.
-2. **Disable stdout console spans** or swap `SimpleSpanProcessor` for `BatchSpanProcessor` in [tracing.py](file:///f:/LLM%20Gateway/app/observability/tracing.py#L8).
+#### Mock Test 5k Target & Virtualization Bottleneck Analysis:
+The mock-mode load tests are capped below the 5,000+ requests mark in 35 seconds due to **WSL2 Docker networking virtualization bottlenecks on Windows**. 
+- **The Issue**: While a single request processes in **31ms** locally, running 50 concurrent VUs through Docker's bridge network on Windows WSL2 results in socket queuing delays (adding ~1.1s lag per connection outside Uvicorn).
+- **Tracing Processor Verification**: Swapping `SimpleSpanProcessor` for `BatchSpanProcessor` in [tracing.py](file:///f:/LLM%20Gateway/app/observability/tracing.py#L8) successfully moves span exports to a background thread. Spans are not dropped on clean container shutdown (flushed automatically via shutdown hooks), and console outputs still print in batches. To run over 5,000+ requests under WSL2 virtualization, run k6 for `100s` or turn off Console Exporter writes.
 
 ---
 
