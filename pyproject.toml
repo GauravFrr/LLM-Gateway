@@ -5,6 +5,7 @@ exclude = [
     ".venv",
     ".git",
     "verify_*.py",
+    "scripts/verify_*.py",
     "tests/load/gateway_load_test.js",
     "app/db/migrations/**"
 ]

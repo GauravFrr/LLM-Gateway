@@ -129,7 +129,7 @@ To validate performance under load, we ran k6 benchmark scripts under two modes:
    ```
 2. Run the verification script:
    ```bash
-   .venv\Scripts\python verify_phase4.py
+   .venv\Scripts\python scripts/verify_phase4.py
    ```
 
 ### Measured Performance Results
