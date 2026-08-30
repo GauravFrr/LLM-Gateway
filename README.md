@@ -150,6 +150,8 @@ To validate performance under load, we ran k6 benchmark scripts under two modes:
 
 ## 7. Known Limitations & Security Notes
 
+- **Database Connection Pool Bottleneck (Resolved / Tuning Knob)**: High-concurrency load testing (50+ concurrent VUs) originally experienced queue contention at the database pool layer because SQLAlchemy's default pool size is `5`. This caused requests to queue waiting for database connections during auth/budget dependency resolution.
+  - *Tuning*: We increased the connection pool size to `50` (with `10` max overflow) in [session.py](file:///f:/LLM%20Gateway/app/db/session.py#L11-L12). For production deployments under higher loads, scale `pool_size` proportionally to your target concurrency.
 - **Streaming Fallback**: Fallbacks only apply to non-streaming requests. Mid-stream provider drops cannot be recovered mid-way and are returned to the client directly.
 - **Manual Pricing Table**: Upstream model pricing is stored in PostgreSQL and must be maintained manually; it does not auto-fetch from provider pricing pages.
 - **Grafana Credentials**: The default credentials (`admin` / `admin`) are configured for local demo purposes and must be secured in a production environment.
