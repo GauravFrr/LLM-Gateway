@@ -1,5 +1,9 @@
 <div align="center">
-  <img alt="LLM Gateway Banner" src="assets/banner.png" width="450">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/banner-light.svg">
+    <img alt="LLM Gateway Banner" src="assets/banner-dark.svg" width="450">
+  </picture>
 
   <p><strong>Production-grade Resilience API Proxy & Router for LLM Providers.</strong></p>
   
