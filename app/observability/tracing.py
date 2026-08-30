@@ -1,9 +1,10 @@
+import os
+
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
-import os
 # Initialize trace provider
 provider = TracerProvider()
 if os.getenv("OTEL_CONSOLE_EXPORT", "True").lower() == "true":
