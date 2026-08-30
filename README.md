@@ -134,25 +134,33 @@ To validate performance under load, we ran k6 benchmark scripts under two modes:
 
 ### Measured Performance Results
 
-| Metric | Mock Provider Mode (`MOCK_PROVIDERS=True`, 50 VUs) | Real Provider Smoke Test (`MOCK_PROVIDERS=False`, Low Load) |
+| Metric | Mock Provider Mode (`MOCK_PROVIDERS=True`, 50 VUs) | Real Provider Smoke Test (`MOCK_PROVIDERS=False`, 35 Requests) |
 | :--- | :--- | :--- |
 | **Request Duration (Avg)** | **912.86 ms** *(includes 10ms mock sleep + telemetry console logging)* | **~280 ms** *(Groq)* / **~900 ms** *(Gemini)* |
-| **Average Gateway Overhead** | **88.58 ms** *(includes telemetry console logging IO overhead)* | **10.33 ms** *(includes first request cold-start latency)* |
-| **Median (P50) Overhead** | **76.77 ms** | **3.20 ms** *(excluding cold start)* |
-| **Max Gateway Overhead** | **562.79 ms** | **14.80 ms** |
+| **Average Gateway Overhead** | **88.58 ms** *(includes telemetry console logging IO overhead)* | **1.77 ms** |
+| **Median (P50) Overhead** | **76.77 ms** | **1.37 ms** |
+| **P95 Gateway Overhead** | **177.01 ms** | **5.55 ms** |
+| **Max Gateway Overhead** | **562.79 ms** | **9.31 ms** |
 | **Rate Limit Accuracy** | **100%** *(0 requests leaked)* | **100%** *(0 requests leaked)* |
 | **Error Rate %** | **0.00%** *(excluding simulated outage window)* | **0.00%** |
 | **Throughput** | **53.62 requests/sec** | Restricted by provider rate limits |
 
 *Note: Separating the result sets isolates the gateway's processing overhead under high database connection pool contention (50 concurrent VUs queuing for connections) versus low-concurrency real-provider routing where pure gateway latency remains <10ms.*
 
+#### Mock Test 5k Target Analysis:
+The mock-mode run completed exactly **1,910 iterations** with **100.00% checks passed** in 35 seconds. It was capped below the 5,000+ request target because the synchronous OpenTelemetry `ConsoleSpanExporter` blocked the main thread (adding ~800ms logging latency per request). To scale this mock run beyond 5,000+ total requests, either:
+1. **Increase k6 duration** to `100s`.
+2. **Disable stdout console spans** or swap `SimpleSpanProcessor` for `BatchSpanProcessor` in [tracing.py](file:///f:/LLM%20Gateway/app/observability/tracing.py#L8).
+
 ---
 
 ## 7. Known Limitations & Security Notes
 
+- **Prometheus Scrape Interval**: The scrape interval is fixed at **`2s`** and is not configurable via environment variables because the Prometheus image version in use does not support the `--enable-feature=expand-external-env` flag for env var substitution inside `prometheus.yml`.
 - **Database Connection Pool Bottleneck (Resolved / Tuning Knob)**: High-concurrency load testing (50+ concurrent VUs) originally experienced queue contention at the database pool layer because SQLAlchemy's default pool size is `5`. This caused requests to queue waiting for database connections during auth/budget dependency resolution.
   - *Tuning*: We increased the connection pool size to `50` (with `10` max overflow) in [session.py](file:///f:/LLM%20Gateway/app/db/session.py#L11-L12). For production deployments under higher loads, scale `pool_size` proportionally to your target concurrency.
 - **Streaming Fallback**: Fallbacks only apply to non-streaming requests. Mid-stream provider drops cannot be recovered mid-way and are returned to the client directly.
 - **Manual Pricing Table**: Upstream model pricing is stored in PostgreSQL and must be maintained manually; it does not auto-fetch from provider pricing pages.
 - **Grafana Credentials**: The default credentials (`admin` / `admin`) are configured for local demo purposes and must be secured in a production environment.
 - **Fail-Open Redis Behavior**: If Redis experiences an outage, the gateway fails open for rate limits and auth validation to ensure maximum uptime, letting requests bypass limits instead of crashing.
+
