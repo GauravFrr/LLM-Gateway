@@ -134,17 +134,17 @@ To validate performance under load, we ran k6 benchmark scripts under two modes:
 
 ### Measured Performance Results
 
-| Metric | Mock Provider Mode (`MOCK_PROVIDERS=True`) | Real Provider Smoke Test (`MOCK_PROVIDERS=False`) |
+| Metric | Mock Provider Mode (`MOCK_PROVIDERS=True`, 50 VUs) | Real Provider Smoke Test (`MOCK_PROVIDERS=False`, Low Load) |
 | :--- | :--- | :--- |
-| **P50 Latency** | **~2.8 ms** *(Pure Gateway Overhead)* | **~350 ms** *(Groq)* / **~900 ms** *(Gemini)* |
-| **P95 Latency** | **~4.9 ms** *(Pure Gateway Overhead)* | **~420 ms** *(Groq)* / **~1.2s** *(Gemini)* |
-| **P99 Latency** | **~8.2 ms** *(Pure Gateway Overhead)* | **~450 ms** *(Groq)* / **~1.5s** *(Gemini)* |
-| **Max Overhead** | **< 10 ms** | **< 10 ms** |
-| **Rate Limit Accuracy** | **100%** *(0 requests exceeded limits)* | **100%** *(0 requests exceeded limits)* |
-| **Error Rate %** | **0.0%** *(excluding simulated outage window)* | **0.0%** *(excluding simulated outage window)* |
-| **Throughput** | **~1,200 requests/sec** | Restricted by provider rate limits |
+| **Request Duration (Avg)** | **873.37 ms** *(includes 10ms mock sleep + concurrency queuing)* | **~280 ms** *(Groq)* / **~900 ms** *(Gemini)* |
+| **P50 Gateway Overhead** | **42.48 ms** *(includes db/redis connection queue delay)* | **3.20 ms** *(Pure Gateway processing)* |
+| **P95 Gateway Overhead** | **87.39 ms** *(includes db/redis connection queue delay)* | **6.50 ms** *(Pure Gateway processing)* |
+| **Max Gateway Overhead** | **206.00 ms** | **9.10 ms** |
+| **Rate Limit Accuracy** | **100%** *(0 requests leaked)* | **100%** *(0 requests leaked)* |
+| **Error Rate %** | **0.00%** *(excluding simulated outage window)* | **0.00%** |
+| **Throughput** | **55.84 requests/sec** | Restricted by provider rate limits |
 
-*Note: Separating the result sets isolates the gateway's core logic from provider latency variability, ensuring the <10ms overhead target is verified honestly without network interference.*
+*Note: Separating the result sets isolates the gateway's processing overhead under high database connection pool contention (50 concurrent VUs queuing for connections) versus low-concurrency real-provider routing where pure gateway latency remains <10ms.*
 
 ---
 
