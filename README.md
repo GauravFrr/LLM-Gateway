@@ -164,4 +164,5 @@ The mock-mode load tests are capped below the 5,000+ requests mark in 35 seconds
 - **Manual Pricing Table**: Upstream model pricing is stored in PostgreSQL and must be maintained manually; it does not auto-fetch from provider pricing pages.
 - **Grafana Credentials**: The default credentials (`admin` / `admin`) are configured for local demo purposes and must be secured in a production environment.
 - **Fail-Open Redis Behavior**: If Redis experiences an outage, the gateway fails open for rate limits and auth validation to ensure maximum uptime, letting requests bypass limits instead of crashing.
+- **SQLite CI Testing Limitation**: GitHub Actions CI tests run using an in-memory SQLite database (`sqlite+aiosqlite:///:memory:`) for execution speed and portability, while local development and production integration tests run against a real PostgreSQL instance. Because of minor SQL behavioral differences (concurrency levels, data types, indexing), green CI builds do not fully guarantee identical database runtime behavior under production PostgreSQL conditions.
 

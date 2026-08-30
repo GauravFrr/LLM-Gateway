@@ -36,6 +36,9 @@ jobs:
       run: ruff format --check .
 
     - name: Run Pytest
+      # Note: CI tests run against SQLite and a mocked Redis for portability/speed.
+      # To run tests against real containers in CI, add a 'services' block to this job
+      # for postgres:15 and redis:7, and update the URLs to point to localhost.
       env:
         DATABASE_URL: "sqlite+aiosqlite:///:memory:"
         REDIS_URL: "redis://localhost:6379/0"
