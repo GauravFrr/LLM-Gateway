@@ -1,18 +1,18 @@
 import datetime
-import structlog
-from fastapi import HTTPException, Request, Depends
-import redis.asyncio as redis_async
 
+import redis.asyncio as redis_async
+import structlog
+from fastapi import Depends, HTTPException, Request
+
+from app.core.auth import require_auth
 from app.db.session import get_redis
 from app.models.db import Team
-from app.core.auth import require_auth
 
 logger = structlog.get_logger()
 
+
 async def check_budget(
-    request: Request,
-    team: Team = Depends(require_auth),
-    redis_client: redis_async.Redis = Depends(get_redis)
+    request: Request, team: Team = Depends(require_auth), redis_client: redis_async.Redis = Depends(get_redis)
 ):
     """
     Enforces monthly budget limits.
@@ -44,27 +44,23 @@ async def check_budget(
     # Update budget usage gauge
     try:
         from app.observability.metrics import TEAM_BUDGET_USAGE
-        TEAM_BUDGET_USAGE.labels(team_id=str(team.id), team_name=team.name).set(current_spend / budget if budget > 0 else 0.0)
+
+        TEAM_BUDGET_USAGE.labels(team_id=str(team.id), team_name=team.name).set(
+            current_spend / budget if budget > 0 else 0.0
+        )
     except Exception as metric_err:
         logger.error("metrics_error_in_budget_check", error=str(metric_err))
 
     if current_spend >= budget:
         logger.warning(
-            "budget_exceeded",
-            team_id=team.id,
-            current_spend=current_spend,
-            budget=budget,
-            request_id=request_id
+            "budget_exceeded", team_id=team.id, current_spend=current_spend, budget=budget, request_id=request_id
         )
         # Record request rejection in Prometheus
         try:
             from app.observability.metrics import REQUEST_COUNT
+
             REQUEST_COUNT.labels(
-                provider="none",
-                model="none",
-                status_code="402",
-                team_id=str(team.id),
-                was_fallback="False"
+                provider="none", model="none", status_code="402", team_id=str(team.id), was_fallback="False"
             ).inc()
         except Exception as metric_err:
             logger.error("metrics_error_recording_budget_rejection", error=str(metric_err))
@@ -77,20 +73,17 @@ async def check_budget(
                     "message": f"Monthly budget exceeded. Spend: ${current_spend:.2f}, Budget: ${budget:.2f}",
                     "current_spend": current_spend,
                     "budget": budget,
-                    "request_id": request_id
+                    "request_id": request_id,
                 }
-            }
+            },
         )
 
     if current_spend >= 0.8 * budget:
         pct = (current_spend / budget) * 100.0
         request.state.budget_warning = f"{pct:.0f}%"
 
-async def record_budget_spend(
-    redis_client: redis_async.Redis,
-    team_id: str,
-    cost_usd: float
-):
+
+async def record_budget_spend(redis_client: redis_async.Redis, team_id: str, cost_usd: float):
     """
     Increments the monthly spend in Redis by cost_usd (converted to cents).
     """

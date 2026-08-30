@@ -1,8 +1,9 @@
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
-from typing import List, Dict, Tuple, Optional
-from app.providers.base import BaseProvider, RetryableProviderError, NonRetryableProviderError, ProviderRateLimitError
+
+from app.providers.base import BaseProvider, NonRetryableProviderError, ProviderRateLimitError, RetryableProviderError
+
 
 class GeminiProvider(BaseProvider):
     """
@@ -23,9 +24,9 @@ class GeminiProvider(BaseProvider):
     async def chat_completion(
         self,
         model: str,
-        messages: List[Dict[str, str]],
-        max_tokens: Optional[int] = None,
-    ) -> Tuple[str, int, int]:
+        messages: list[dict[str, str]],
+        max_tokens: int | None = None,
+    ) -> tuple[str, int, int]:
         """
         Execute chat completion on Google Gemini model.
 
@@ -37,8 +38,10 @@ class GeminiProvider(BaseProvider):
         Returns:
             Tuple of (assistant_content, input_tokens, output_tokens)
         """
-        from app.config import settings
         import asyncio
+
+        from app.config import settings
+
         if settings.MOCK_PROVIDERS:
             # Simulate a small provider network latency
             await asyncio.sleep(0.010)
@@ -52,19 +55,9 @@ class GeminiProvider(BaseProvider):
             if role == "system":
                 system_instruction = content
             elif role == "assistant":
-                contents.append(
-                    types.Content(
-                        role="model",
-                        parts=[types.Part.from_text(text=content)]
-                    )
-                )
+                contents.append(types.Content(role="model", parts=[types.Part.from_text(text=content)]))
             else:
-                contents.append(
-                    types.Content(
-                        role="user",
-                        parts=[types.Part.from_text(text=content)]
-                    )
-                )
+                contents.append(types.Content(role="user", parts=[types.Part.from_text(text=content)]))
 
         config = types.GenerateContentConfig()
         if max_tokens is not None:
@@ -91,7 +84,7 @@ class GeminiProvider(BaseProvider):
 
         # The SDK text attribute might be None if blocked or empty
         content_text = response.text or ""
-        
+
         usage = response.usage_metadata
         input_tokens = (usage.prompt_token_count or 0) if usage else 0
         output_tokens = (usage.candidates_token_count or 0) if usage else 0

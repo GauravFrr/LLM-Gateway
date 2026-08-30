@@ -1,8 +1,11 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from fastapi import HTTPException
+
 from app.core.budget import check_budget
 from app.models.db import Team
+
 
 @pytest.mark.asyncio
 async def test_budget_check_allowed():
@@ -21,6 +24,7 @@ async def test_budget_check_allowed():
     await check_budget(request, team, mock_redis)
     assert not hasattr(request.state, "budget_warning") or request.state.budget_warning is None
 
+
 @pytest.mark.asyncio
 async def test_budget_check_warning():
     request = MagicMock()
@@ -37,6 +41,7 @@ async def test_budget_check_warning():
     await check_budget(request, team, mock_redis)
     assert request.state.budget_warning == "85%"
 
+
 @pytest.mark.asyncio
 async def test_budget_check_blocked():
     request = MagicMock()
@@ -51,9 +56,10 @@ async def test_budget_check_blocked():
 
     with pytest.raises(HTTPException) as excinfo:
         await check_budget(request, team, mock_redis)
-        
+
     assert excinfo.value.status_code == 402
     assert excinfo.value.detail["error"]["code"] == "budget_exceeded"
+
 
 @pytest.mark.asyncio
 async def test_budget_check_fail_open():

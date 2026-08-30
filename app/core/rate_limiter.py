@@ -1,19 +1,20 @@
 import os
 import time
-import structlog
-from fastapi import HTTPException, Request, Depends
-import redis.asyncio as redis_async
 
+import redis.asyncio as redis_async
+import structlog
+from fastapi import Depends, HTTPException, Request
+
+from app.core.auth import require_auth
 from app.db.session import get_redis
 from app.models.db import Team
 from app.models.schemas import ChatCompletionRequest
-from app.core.auth import require_auth
 
 logger = structlog.get_logger()
 
 # Load the Lua script for token bucket check-and-decrement
 LUA_DIR = os.path.dirname(os.path.abspath(__file__))
-with open(os.path.join(LUA_DIR, "lua", "token_bucket.lua"), "r") as f:
+with open(os.path.join(LUA_DIR, "lua", "token_bucket.lua")) as f:
     TOKEN_BUCKET_LUA = f.read()
 
 # Define Lua adjustment script to refund unused TPM tokens
@@ -31,10 +32,12 @@ end
 return 1
 """
 
+
 class RateLimiter:
     """
     Handles script registration and script execution caching.
     """
+
     def __init__(self):
         self._script = None
         self._refund_script = None
@@ -49,13 +52,15 @@ class RateLimiter:
             self._refund_script = redis_client.register_script(REFUND_LUA)
         return self._refund_script
 
+
 rate_limiter = RateLimiter()
+
 
 async def check_rate_limit(
     request: Request,
     body: ChatCompletionRequest,
     team: Team = Depends(require_auth),
-    redis_client: redis_async.Redis = Depends(get_redis)
+    redis_client: redis_async.Redis = Depends(get_redis),
 ):
     """
     Enforces RPM and TPM limits via the atomic token_bucket.lua script in Redis.
@@ -66,16 +71,18 @@ async def check_rate_limit(
     # Find the team's access config for this tier
     access = next((a for a in team.model_accesses if a.logical_tier == tier), None)
     if not access:
-        logger.warning("rate_limit_check_failed", reason="tier_not_allowed", tier=tier, team_id=team.id, request_id=request_id)
+        logger.warning(
+            "rate_limit_check_failed", reason="tier_not_allowed", tier=tier, team_id=team.id, request_id=request_id
+        )
         raise HTTPException(
             status_code=403,
             detail={
                 "error": {
                     "code": "invalid_request",
                     "message": f"Team does not have access to the '{tier}' tier.",
-                    "request_id": request_id
+                    "request_id": request_id,
                 }
-            }
+            },
         )
 
     rpm_limit = access.rate_limit_rpm
@@ -91,10 +98,7 @@ async def check_rate_limit(
 
     try:
         script = rate_limiter.get_script(redis_client)
-        res = await script(
-            keys=[rpm_key, tpm_key],
-            args=[now, rpm_limit, tpm_limit, tpm_estimate]
-        )
+        res = await script(keys=[rpm_key, tpm_key], args=[now, rpm_limit, tpm_limit, tpm_estimate])
         allowed = res[0]
         retry_after = res[1]
         rejection_type = res[2] if len(res) > 2 else "rpm"
@@ -105,27 +109,17 @@ async def check_rate_limit(
 
     if not allowed:
         logger.warning(
-            "rate_limit_exceeded",
-            team_id=team.id,
-            tier=tier,
-            retry_after=retry_after,
-            request_id=request_id
+            "rate_limit_exceeded", team_id=team.id, tier=tier, retry_after=retry_after, request_id=request_id
         )
         # Record Prometheus metrics immediately before raising exception
         try:
-            from app.observability.metrics import REQUEST_COUNT, RATE_LIMIT_REJECTION
+            from app.observability.metrics import RATE_LIMIT_REJECTION, REQUEST_COUNT
+
             REQUEST_COUNT.labels(
-                provider="none",
-                model="none",
-                status_code="429",
-                team_id=str(team.id),
-                was_fallback="False"
+                provider="none", model="none", status_code="429", team_id=str(team.id), was_fallback="False"
             ).inc()
             RATE_LIMIT_REJECTION.labels(
-                team_id=str(team.id),
-                team_name=team.name,
-                logical_tier=tier,
-                rejection_type=rejection_type
+                team_id=str(team.id), team_name=team.name, logical_tier=tier, rejection_type=rejection_type
             ).inc()
         except Exception as metric_err:
             logger.error("metrics_error_in_rate_limiter", error=str(metric_err))
@@ -138,18 +132,13 @@ async def check_rate_limit(
                     "code": "rate_limit_exceeded",
                     "message": f"Rate limit exceeded. Please retry after {retry_after} seconds.",
                     "retry_after_seconds": retry_after,
-                    "request_id": request_id
+                    "request_id": request_id,
                 }
-            }
+            },
         )
 
-async def refund_tpm_tokens(
-    redis_client: redis_async.Redis,
-    team_id: str,
-    tier: str,
-    limit: int,
-    refund_amount: int
-):
+
+async def refund_tpm_tokens(redis_client: redis_async.Redis, team_id: str, tier: str, limit: int, refund_amount: int):
     """
     Refunds unused tokens back to the TPM bucket (called post-request).
     """

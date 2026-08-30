@@ -1,9 +1,10 @@
+import asyncio
+import hashlib
 import os
 import secrets
-import hashlib
-import yaml
-import asyncio
+
 import structlog
+import yaml
 from sqlalchemy.future import select
 
 from app.db.session import SessionLocal
@@ -11,20 +12,20 @@ from app.models.db import Team, TeamModelAccess
 
 logger = structlog.get_logger()
 
+
 async def seed_db():
     """
     Idempotent database seeding script. Loads config.yaml and populates
     the Postgres teams and team_model_access tables.
     """
     config_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "config.yaml"
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "config.yaml"
     )
     if not os.path.exists(config_path):
         logger.error("seed_failed", reason="config_not_found", path=config_path)
         return
 
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         config = yaml.safe_load(f)
 
     teams_data = config.get("teams", [])
@@ -32,7 +33,7 @@ async def seed_db():
         for team_data in teams_data:
             name = team_data.get("name")
             plaintext_key = team_data.get("api_key")
-            
+
             if not plaintext_key:
                 plaintext_key = f"key_{secrets.token_urlsafe(32)}"
                 logger.info("generated_api_key_for_team", team=name, api_key=plaintext_key)
@@ -42,6 +43,7 @@ async def seed_db():
             priority = team_data.get("priority_tier", "normal")
 
             import uuid
+
             team_id_str = team_data.get("id")
             team_id = uuid.UUID(team_id_str) if team_id_str else None
 
@@ -52,11 +54,7 @@ async def seed_db():
             if not team:
                 # Create new team
                 team = Team(
-                    id=team_id,
-                    name=name,
-                    api_key_hash=api_key_hash,
-                    monthly_budget_usd=budget,
-                    priority_tier=priority
+                    id=team_id, name=name, api_key_hash=api_key_hash, monthly_budget_usd=budget, priority_tier=priority
                 )
                 session.add(team)
                 await session.flush()  # Flush to populate team.id
@@ -69,9 +67,7 @@ async def seed_db():
 
             # Handle model access mappings - delete existing for refresh
             # Direct delete via table interface
-            await session.execute(
-                TeamModelAccess.__table__.delete().where(TeamModelAccess.team_id == team.id)
-            )
+            await session.execute(TeamModelAccess.__table__.delete().where(TeamModelAccess.team_id == team.id))
 
             accesses = team_data.get("model_access", [])
             for access_data in accesses:
@@ -89,12 +85,13 @@ async def seed_db():
                     fallback_provider=fallback.get("provider") if fallback else None,
                     fallback_model=fallback.get("model") if fallback else None,
                     rate_limit_rpm=rpm,
-                    rate_limit_tpm=tpm
+                    rate_limit_tpm=tpm,
                 )
                 session.add(model_access)
 
         await session.commit()
     logger.info("seed_complete")
+
 
 if __name__ == "__main__":
     # Setup standard logger configuration for the standalone script run

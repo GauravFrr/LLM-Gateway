@@ -1,6 +1,7 @@
 import httpx
-from typing import List, Dict, Tuple, Optional
-from app.providers.base import BaseProvider, RetryableProviderError, NonRetryableProviderError
+
+from app.providers.base import BaseProvider, NonRetryableProviderError, RetryableProviderError
+
 
 class OllamaProvider(BaseProvider):
     """
@@ -19,9 +20,9 @@ class OllamaProvider(BaseProvider):
     async def chat_completion(
         self,
         model: str,
-        messages: List[Dict[str, str]],
-        max_tokens: Optional[int] = None,
-    ) -> Tuple[str, int, int]:
+        messages: list[dict[str, str]],
+        max_tokens: int | None = None,
+    ) -> tuple[str, int, int]:
         """
         Execute chat completion on local Ollama model.
 
@@ -34,12 +35,9 @@ class OllamaProvider(BaseProvider):
             Tuple of (assistant_content, input_tokens, output_tokens)
         """
         url = f"{self.base_url}/api/chat"
-        
+
         # Prepare messages in ollama format
-        formatted_messages = [
-            {"role": msg["role"], "content": msg["content"]}
-            for msg in messages
-        ]
+        formatted_messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
 
         payload = {
             "model": model,
@@ -58,9 +56,13 @@ class OllamaProvider(BaseProvider):
         except httpx.HTTPStatusError as e:
             status_code = e.response.status_code
             if status_code >= 500:
-                raise RetryableProviderError(f"Ollama server error: {str(e)}", provider="ollama", status_code=status_code)
+                raise RetryableProviderError(
+                    f"Ollama server error: {str(e)}", provider="ollama", status_code=status_code
+                )
             else:
-                raise NonRetryableProviderError(f"Ollama client error: {str(e)}", provider="ollama", status_code=status_code)
+                raise NonRetryableProviderError(
+                    f"Ollama client error: {str(e)}", provider="ollama", status_code=status_code
+                )
         except httpx.RequestError as e:
             raise RetryableProviderError(f"Ollama network/connection error: {str(e)}", provider="ollama")
         except Exception as e:

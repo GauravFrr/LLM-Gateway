@@ -1,6 +1,7 @@
-from groq import AsyncGroq, GroqError, APIStatusError
-from typing import List, Dict, Tuple, Optional
-from app.providers.base import BaseProvider, RetryableProviderError, NonRetryableProviderError, ProviderRateLimitError
+from groq import APIStatusError, AsyncGroq, GroqError
+
+from app.providers.base import BaseProvider, NonRetryableProviderError, ProviderRateLimitError, RetryableProviderError
+
 
 class GroqProvider(BaseProvider):
     """
@@ -21,9 +22,9 @@ class GroqProvider(BaseProvider):
     async def chat_completion(
         self,
         model: str,
-        messages: List[Dict[str, str]],
-        max_tokens: Optional[int] = None,
-    ) -> Tuple[str, int, int]:
+        messages: list[dict[str, str]],
+        max_tokens: int | None = None,
+    ) -> tuple[str, int, int]:
         """
         Execute chat completion on Groq model.
 
@@ -35,35 +36,34 @@ class GroqProvider(BaseProvider):
         Returns:
             Tuple of (assistant_content, input_tokens, output_tokens)
         """
-        from app.config import settings
         import asyncio
+
+        from app.config import settings
+
         if settings.MOCK_PROVIDERS:
             # Simulate a small provider network latency
             await asyncio.sleep(0.010)
             return "This is a mocked Groq response.", 15, 10
         # Format messages for openai-compatible API
-        formatted_messages = [
-            {"role": msg["role"], "content": msg["content"]}
-            for msg in messages
-        ]
+        formatted_messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
 
         kwargs = {}
         if max_tokens is not None:
             kwargs["max_tokens"] = max_tokens
 
         try:
-            response = await self.client.chat.completions.create(
-                model=model,
-                messages=formatted_messages,
-                **kwargs
-            )
+            response = await self.client.chat.completions.create(model=model, messages=formatted_messages, **kwargs)
         except APIStatusError as e:
             if e.status_code == 429:
                 raise ProviderRateLimitError(f"Groq API status error: {e.message}", provider="groq")
             elif e.status_code >= 500:
-                raise RetryableProviderError(f"Groq API status error: {e.message}", provider="groq", status_code=e.status_code)
+                raise RetryableProviderError(
+                    f"Groq API status error: {e.message}", provider="groq", status_code=e.status_code
+                )
             else:
-                raise NonRetryableProviderError(f"Groq API status error: {e.message}", provider="groq", status_code=e.status_code)
+                raise NonRetryableProviderError(
+                    f"Groq API status error: {e.message}", provider="groq", status_code=e.status_code
+                )
         except GroqError as e:
             raise RetryableProviderError(f"Groq error: {str(e)}", provider="groq")
         except Exception as e:

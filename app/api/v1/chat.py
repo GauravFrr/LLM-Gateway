@@ -1,24 +1,24 @@
 import time
-import structlog
-from fastapi import APIRouter, HTTPException, Depends, Request, Response
-from tenacity import AsyncRetrying, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-from app.models.schemas import ChatCompletionRequest, ChatCompletionResponse, Usage
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, wait_exponential
+
 from app.config import settings
-from app.db.session import get_redis, get_db
-from app.models.db import Team
 from app.core.auth import require_auth
-from app.core.rate_limiter import check_rate_limit, refund_tpm_tokens
 from app.core.budget import check_budget, record_budget_spend
 from app.core.circuit_breaker import RedisCircuitBreaker
+from app.core.rate_limiter import check_rate_limit, refund_tpm_tokens
 from app.core.router import router as router_layer
+from app.db.session import get_db, get_redis
+from app.models.db import Team
+from app.models.schemas import ChatCompletionRequest, ChatCompletionResponse, Usage
 from app.providers import (
-    GeminiProvider,
     ClaudeProvider,
+    GeminiProvider,
     GroqProvider,
     OllamaProvider,
-    GatewayProviderError,
-    RetryableProviderError
+    RetryableProviderError,
 )
 
 router = APIRouter()
@@ -42,7 +42,7 @@ PRICING = {
         "openai/gpt-oss-20b": {"input": 0.00005, "output": 0.00005},
         "llama3-8b-8192": {"input": 0.00005, "output": 0.00008},
     },
-    "ollama": {}
+    "ollama": {},
 }
 
 
@@ -54,22 +54,23 @@ def compute_cost(provider: str, model: str, input_tokens: int, output_tokens: in
         input_tokens = 0
     if output_tokens is None:
         output_tokens = 0
-        
+
     provider_pricing = PRICING.get(provider.lower(), {})
     model_pricing = provider_pricing.get(model.lower())
-    
+
     if not model_pricing:
         for key, value in provider_pricing.items():
             if model.lower().startswith(key):
                 model_pricing = value
                 break
-                
+
     if not model_pricing:
         return 0.0
-        
+
     input_cost = (input_tokens / 1000.0) * model_pricing.get("input", 0.0)
     output_cost = (output_tokens / 1000.0) * model_pricing.get("output", 0.0)
     return round(input_cost + output_cost, 8)
+
 
 def _get_provider_client(provider_name: str, request_id: str):
     """
@@ -91,10 +92,11 @@ def _get_provider_client(provider_name: str, request_id: str):
                 "error": {
                     "code": "internal_error",
                     "message": f"Unsupported provider '{provider_name}' resolved.",
-                    "request_id": request_id
+                    "request_id": request_id,
                 }
-            }
+            },
         )
+
 
 @router.post("/completions", response_model=ChatCompletionResponse)
 async def chat_completions(
@@ -105,7 +107,7 @@ async def chat_completions(
     _rate_limit=Depends(check_rate_limit),
     _budget=Depends(check_budget),
     redis_client=Depends(get_redis),
-    db=Depends(get_db)
+    db=Depends(get_db),
 ):
     """
     Unified chat completion endpoint acting as an LLM proxy.
@@ -139,37 +141,41 @@ async def chat_completions(
 
     start_time = time.perf_counter()
 
-    def record_completed_metrics(status_code: str, prov: str, model_name: str, fallback_used: bool, cost_usd: float = 0.0):
+    def record_completed_metrics(
+        status_code: str, prov: str, model_name: str, fallback_used: bool, cost_usd: float = 0.0
+    ):
         total_time = time.perf_counter() - start_time
         overhead = total_time - provider_duration
         response.headers["X-Gateway-Overhead-Ms"] = f"{overhead * 1000:.2f}"
-        
+
         try:
             from app.observability.metrics import (
-                REQUEST_LATENCY, REQUEST_COUNT, GATEWAY_OVERHEAD,
-                TEAM_SPEND, TOKEN_COUNT, FALLBACK_COUNT
+                FALLBACK_COUNT,
+                GATEWAY_OVERHEAD,
+                REQUEST_COUNT,
+                REQUEST_LATENCY,
+                TEAM_SPEND,
+                TOKEN_COUNT,
             )
+
             REQUEST_LATENCY.labels(
                 provider=prov or "none",
                 model=model_name or "none",
                 status_code=str(status_code),
                 team_id=str(team.id),
-                was_fallback=str(fallback_used)
+                was_fallback=str(fallback_used),
             ).observe(total_time)
-            
+
             REQUEST_COUNT.labels(
                 provider=prov or "none",
                 model=model_name or "none",
                 status_code=str(status_code),
                 team_id=str(team.id),
-                was_fallback=str(fallback_used)
+                was_fallback=str(fallback_used),
             ).inc()
-            
-            GATEWAY_OVERHEAD.labels(
-                team_id=str(team.id),
-                logical_tier=tier
-            ).observe(overhead)
-            
+
+            GATEWAY_OVERHEAD.labels(team_id=str(team.id), logical_tier=tier).observe(overhead)
+
             if status_code == "200" and prov:
                 if cost_usd > 0.0:
                     TEAM_SPEND.labels(team_id=str(team.id), team_name=team.name, provider=prov).inc(cost_usd)
@@ -177,14 +183,12 @@ async def chat_completions(
                     TOKEN_COUNT.labels(team_id=str(team.id), provider=prov, token_type="input").inc(input_tokens)
                 if output_tokens > 0:
                     TOKEN_COUNT.labels(team_id=str(team.id), provider=prov, token_type="output").inc(output_tokens)
-            
+
             if fallback_used and status_code == "200" and fallback_provider:
                 FALLBACK_COUNT.labels(
-                    team_id=str(team.id),
-                    logical_tier=tier,
-                    fallback_provider=fallback_provider
+                    team_id=str(team.id), logical_tier=tier, fallback_provider=fallback_provider
                 ).inc()
-                
+
         except Exception as metric_err:
             logger.error("metrics_error_in_completed_request", error=str(metric_err))
 
@@ -198,7 +202,7 @@ async def chat_completions(
             request_id=request_id,
             provider=primary_provider,
             model=primary_model,
-            circuit_state=primary_state
+            circuit_state=primary_state,
         )
         prov_start = time.perf_counter()
         try:
@@ -207,9 +211,9 @@ async def chat_completions(
                 stop=stop_after_attempt(2),
                 wait=wait_exponential(multiplier=0.5, min=0.5, max=2.0),
                 retry=retry_if_exception_type(RetryableProviderError),
-                reraise=True
+                reraise=True,
             )
-            
+
             async for state in retryer:
                 with state:
                     client = _get_provider_client(primary_provider, request_id)
@@ -218,49 +222,46 @@ async def chat_completions(
                         messages=[msg.model_dump() for msg in body.messages],
                         max_tokens=body.max_tokens,
                     )
-            
+
             # Primary Call Success!
             provider_duration += time.perf_counter() - prov_start
             executed_provider = primary_provider
             executed_model = primary_model
             await primary_cb.record_success(db)
-            
+
         except Exception as e:
-            logger.warning(
-                "primary_provider_failed",
-                request_id=request_id,
-                provider=primary_provider,
-                error=str(e)
-            )
+            logger.warning("primary_provider_failed", request_id=request_id, provider=primary_provider, error=str(e))
             # Record failure against primary circuit breaker if it's not a rate limit
             if getattr(e, "trips_circuit", True):
                 await primary_cb.record_failure(str(e), db)
-            
+
             # Record failed primary attempt in metrics
             prov_code = "502"
             from app.providers.base import ProviderRateLimitError
+
             if isinstance(e, ProviderRateLimitError):
                 prov_code = "429"
-            
+
             primary_duration = time.perf_counter() - prov_start
             provider_duration += primary_duration
-            
+
             try:
-                from app.observability.metrics import REQUEST_LATENCY, REQUEST_COUNT
+                from app.observability.metrics import REQUEST_COUNT, REQUEST_LATENCY
+
                 REQUEST_LATENCY.labels(
                     provider=primary_provider,
                     model=primary_model,
                     status_code=prov_code,
                     team_id=str(team.id),
-                    was_fallback="False"
+                    was_fallback="False",
                 ).observe(primary_duration)
-                
+
                 REQUEST_COUNT.labels(
                     provider=primary_provider,
                     model=primary_model,
                     status_code=prov_code,
                     team_id=str(team.id),
-                    was_fallback="False"
+                    was_fallback="False",
                 ).inc()
             except Exception as metric_err:
                 logger.error("metrics_error_recording_failed_primary", error=str(metric_err))
@@ -268,10 +269,7 @@ async def chat_completions(
             attempt_primary = False
     else:
         logger.info(
-            "routing_primary_skipped",
-            request_id=request_id,
-            provider=primary_provider,
-            circuit_state=primary_state
+            "routing_primary_skipped", request_id=request_id, provider=primary_provider, circuit_state=primary_state
         )
 
     # 3. Fallback routing if primary was skipped or failed
@@ -283,7 +281,7 @@ async def chat_completions(
                 team_id=str(team.id),
                 tier=tier,
                 limit=access.rate_limit_tpm,
-                refund_amount=tpm_estimate
+                refund_amount=tpm_estimate,
             )
             record_completed_metrics("503", primary_provider, primary_model, was_fallback)
             raise HTTPException(
@@ -292,9 +290,9 @@ async def chat_completions(
                     "error": {
                         "code": "provider_unavailable",
                         "message": f"Primary provider '{primary_provider}' failed and no fallback is configured.",
-                        "request_id": request_id
+                        "request_id": request_id,
                     }
-                }
+                },
             )
 
         # Check fallback circuit state
@@ -305,7 +303,7 @@ async def chat_completions(
                 team_id=str(team.id),
                 tier=tier,
                 limit=access.rate_limit_tpm,
-                refund_amount=tpm_estimate
+                refund_amount=tpm_estimate,
             )
             record_completed_metrics("503", fallback_provider, fallback_model, was_fallback)
             raise HTTPException(
@@ -315,9 +313,9 @@ async def chat_completions(
                         "code": "provider_unavailable",
                         "message": "Both primary and fallback provider circuits are open.",
                         "providers_attempted": [primary_provider, fallback_provider],
-                        "request_id": request_id
+                        "request_id": request_id,
                     }
-                }
+                },
             )
 
         logger.info(
@@ -325,7 +323,7 @@ async def chat_completions(
             request_id=request_id,
             provider=fallback_provider,
             model=fallback_model,
-            circuit_state=fallback_state
+            circuit_state=fallback_state,
         )
         prov_start = time.perf_counter()
         try:
@@ -336,32 +334,27 @@ async def chat_completions(
                 messages=[msg.model_dump() for msg in body.messages],
                 max_tokens=body.max_tokens,
             )
-            
+
             # Fallback Call Success!
             provider_duration += time.perf_counter() - prov_start
             executed_provider = fallback_provider
             executed_model = fallback_model
             was_fallback = True
             await fallback_cb.record_success(db)
-            
+
         except Exception as e:
-            logger.error(
-                "fallback_provider_failed",
-                request_id=request_id,
-                provider=fallback_provider,
-                error=str(e)
-            )
+            logger.error("fallback_provider_failed", request_id=request_id, provider=fallback_provider, error=str(e))
             # Record failure against fallback circuit if it's not a rate limit
             if getattr(e, "trips_circuit", True):
                 await fallback_cb.record_failure(str(e), db)
-            
+
             # Both failed: refund estimated tokens and raise 503
             await refund_tpm_tokens(
                 redis_client=redis_client,
                 team_id=str(team.id),
                 tier=tier,
                 limit=access.rate_limit_tpm,
-                refund_amount=tpm_estimate
+                refund_amount=tpm_estimate,
             )
             record_completed_metrics("503", fallback_provider, fallback_model, was_fallback)
             raise HTTPException(
@@ -371,14 +364,14 @@ async def chat_completions(
                         "code": "provider_unavailable",
                         "message": f"Both primary and fallback providers failed. Primary: {primary_provider}, Fallback: {fallback_provider}.",
                         "providers_attempted": [primary_provider, fallback_provider],
-                        "request_id": request_id
+                        "request_id": request_id,
                     }
-                }
+                },
             )
 
     latency_ms = int((time.perf_counter() - start_time) * 1000)
     cost = compute_cost(executed_provider, executed_model, input_tokens, output_tokens)
-    
+
     # Record success metrics
     record_completed_metrics("200", executed_provider, executed_model, was_fallback, cost)
 
@@ -393,7 +386,7 @@ async def chat_completions(
         team_id=str(team.id),
         tier=tier,
         limit=access.rate_limit_tpm,
-        refund_amount=refund_amount
+        refund_amount=refund_amount,
     )
 
     # 5. Handle response warning headers
@@ -402,11 +395,7 @@ async def chat_completions(
         response.headers["X-Budget-Warning"] = warning
 
     # 6. Construct response
-    usage = Usage(
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        cost_usd=cost
-    )
+    usage = Usage(input_tokens=input_tokens, output_tokens=output_tokens, cost_usd=cost)
 
     res_body = ChatCompletionResponse(
         id=request_id,
@@ -415,7 +404,7 @@ async def chat_completions(
         was_fallback=was_fallback,
         content=content,
         usage=usage,
-        latency_ms=latency_ms
+        latency_ms=latency_ms,
     )
 
     logger.info(
@@ -425,6 +414,6 @@ async def chat_completions(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         cost_usd=cost,
-        was_fallback=was_fallback
+        was_fallback=was_fallback,
     )
     return res_body

@@ -1,25 +1,19 @@
-import urllib.request
 import json
 import sys
+import urllib.request
+
 
 def test_tier(tier: str):
     url = "http://127.0.0.1:8000/v1/chat/completions"
     payload = {
         "tier": tier,
-        "messages": [
-            {"role": "user", "content": "Hello! Respond with the word 'Success' if you read this."}
-        ],
-        "max_tokens": 10
+        "messages": [{"role": "user", "content": "Hello! Respond with the word 'Success' if you read this."}],
+        "max_tokens": 10,
     }
-    
+
     headers = {"Content-Type": "application/json"}
-    req = urllib.request.Request(
-        url, 
-        data=json.dumps(payload).encode("utf-8"), 
-        headers=headers, 
-        method="POST"
-    )
-    
+    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+
     try:
         with urllib.request.urlopen(req) as response:
             res_data = json.loads(response.read().decode("utf-8"))
@@ -35,6 +29,7 @@ def test_tier(tier: str):
     except Exception as e:
         print(f"\n=== Test {tier} Connection Error ===")
         print(str(e))
+
 
 if __name__ == "__main__":
     tier = "balanced"

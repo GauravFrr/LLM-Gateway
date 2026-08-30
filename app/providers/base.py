@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Tuple, Optional
+
 
 # Standard exception hierarchy
 class GatewayProviderError(Exception):
     """Base exception for all provider failures."""
-    def __init__(self, message: str, provider: str, status_code: Optional[int] = None):
+
+    def __init__(self, message: str, provider: str, status_code: int | None = None):
         super().__init__(message)
         self.message = message
         self.provider = provider
@@ -16,11 +17,13 @@ class GatewayProviderError(Exception):
 
 class RetryableProviderError(GatewayProviderError):
     """Exceptions that are safe to retry (e.g., rate limits, network timeouts, transient 5xx)."""
+
     pass
 
 
 class ProviderRateLimitError(RetryableProviderError):
     """Provider returned 429 (quota/rate-limit). Retryable but does NOT trip the circuit breaker."""
+
     def __init__(self, message: str, provider: str, status_code: int = 429):
         super().__init__(message, provider, status_code)
         self.trips_circuit = False  # Provider is UP — only this request is throttled
@@ -28,6 +31,7 @@ class ProviderRateLimitError(RetryableProviderError):
 
 class NonRetryableProviderError(GatewayProviderError):
     """Exceptions that should not be retried (e.g., bad request, invalid API keys, invalid models)."""
+
     pass
 
 
@@ -41,9 +45,9 @@ class BaseProvider(ABC):
     async def chat_completion(
         self,
         model: str,
-        messages: List[Dict[str, str]],
-        max_tokens: Optional[int] = None,
-    ) -> Tuple[str, int, int]:
+        messages: list[dict[str, str]],
+        max_tokens: int | None = None,
+    ) -> tuple[str, int, int]:
         """
         Send a chat completion request to the provider.
 

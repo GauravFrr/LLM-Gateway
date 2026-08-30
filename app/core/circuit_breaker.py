@@ -1,30 +1,29 @@
 import time
-import structlog
-from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import UTC, datetime
+
 import redis.asyncio as redis_async
+import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db import ProviderHealthEvent
 
 logger = structlog.get_logger()
+
 
 class RedisCircuitBreaker:
     """
     Distributed Circuit Breaker using Redis for state/consecutive failures
     and PostgreSQL for state transition history logging.
     """
+
     def __init__(
-        self,
-        redis_client: redis_async.Redis,
-        provider: str,
-        failure_threshold: int = 5,
-        cooldown_seconds: int = 30
+        self, redis_client: redis_async.Redis, provider: str, failure_threshold: int = 5, cooldown_seconds: int = 30
     ):
         self.redis = redis_client
         self.provider = provider.lower()
         self.failure_threshold = failure_threshold
         self.cooldown_seconds = cooldown_seconds
-        
+
         self.state_key = f"circuit:{self.provider}:state"
         self.failures_key = f"circuit:{self.provider}:failures"
         self.cooldown_end_key = f"circuit:{self.provider}:cooldown_end"
@@ -91,7 +90,7 @@ class RedisCircuitBreaker:
                     await self.transition_to(
                         "open",
                         f"Consecutive failures exceeded threshold ({failures}/{self.failure_threshold}): {reason}",
-                        db_session
+                        db_session,
                     )
             except Exception as e:
                 logger.error("redis_error_updating_failures", provider=self.provider, error=str(e))
@@ -100,11 +99,7 @@ class RedisCircuitBreaker:
             try:
                 cooldown_end = time.time() + self.cooldown_seconds
                 await self.redis.set(self.cooldown_end_key, cooldown_end)
-                await self.transition_to(
-                    "open",
-                    f"Test request failed in half_open state: {reason}",
-                    db_session
-                )
+                await self.transition_to("open", f"Test request failed in half_open state: {reason}", db_session)
             except Exception as e:
                 logger.error("redis_error_updating_cooldown_on_half_open", provider=self.provider, error=str(e))
 
@@ -117,15 +112,16 @@ class RedisCircuitBreaker:
             provider=self.provider,
             old_state=await self.redis.get(self.state_key) or "closed",
             new_state=new_state,
-            reason=reason
+            reason=reason,
         )
 
         try:
             await self.redis.set(self.state_key, new_state)
-            
+
             # Update Prometheus circuit state gauge
             try:
                 from app.observability.metrics import CIRCUIT_STATE
+
                 val = 0 if new_state == "closed" else (1 if new_state == "half_open" else 2)
                 CIRCUIT_STATE.labels(provider=self.provider).set(val)
             except Exception as metric_err:
@@ -136,10 +132,7 @@ class RedisCircuitBreaker:
         # Log event to database
         try:
             event = ProviderHealthEvent(
-                provider=self.provider,
-                event_type=f"circuit_{new_state}",
-                reason=reason,
-                created_at=datetime.now(timezone.utc)
+                provider=self.provider, event_type=f"circuit_{new_state}", reason=reason, created_at=datetime.now(UTC)
             )
             db_session.add(event)
             await db_session.commit()

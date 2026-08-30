@@ -1,13 +1,17 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Numeric, Boolean, DateTime, ForeignKey
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
 
 class Base(DeclarativeBase):
     """
     SQLAlchemy declarative base class.
     """
+
     pass
+
 
 class Team(Base):
     __tablename__ = "teams"
@@ -23,6 +27,7 @@ class Team(Base):
     model_accesses: Mapped[list["TeamModelAccess"]] = relationship(
         "TeamModelAccess", back_populates="team", cascade="all, delete-orphan", lazy="selectin"
     )
+
 
 class TeamModelAccess(Base):
     __tablename__ = "team_model_access"
@@ -48,4 +53,3 @@ class ProviderHealthEvent(Base):
     event_type: Mapped[str] = mapped_column(String, nullable=False)  # circuit_opened, circuit_half_open, circuit_closed
     reason: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
-

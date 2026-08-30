@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Response
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 router = APIRouter()
+
 
 @router.get("/health")
 async def health():
@@ -10,6 +11,7 @@ async def health():
     """
     return {"status": "ok"}
 
+
 @router.get("/health/ready")
 async def readiness():
     """
@@ -17,10 +19,10 @@ async def readiness():
     """
     return {"status": "ready"}
 
+
 @router.get("/metrics")
 async def metrics():
     """
     Expose Prometheus metrics scrape endpoint.
     """
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
