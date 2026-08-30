@@ -147,10 +147,11 @@ To validate performance under load, we ran k6 benchmark scripts under two modes:
 
 *Note: Separating the result sets isolates the gateway's processing overhead under high database connection pool contention (50 concurrent VUs queuing for connections) versus low-concurrency real-provider routing where pure gateway latency remains <10ms.*
 
-#### Mock Test 5k Target & Virtualization Bottleneck Analysis:
-The mock-mode load tests are capped below the 5,000+ requests mark in 35 seconds due to **WSL2 Docker networking virtualization bottlenecks on Windows**. 
-- **The Issue**: While a single request processes in **31ms** locally, running 50 concurrent VUs through Docker's bridge network on Windows WSL2 results in socket queuing delays (adding ~1.1s lag per connection outside Uvicorn).
-- **Tracing Processor Verification**: Swapping `SimpleSpanProcessor` for `BatchSpanProcessor` in [tracing.py](file:///f:/LLM%20Gateway/app/observability/tracing.py#L8) successfully moves span exports to a background thread. Spans are not dropped on clean container shutdown (flushed automatically via shutdown hooks), and console outputs still print in batches. To run over 5,000+ requests under WSL2 virtualization, run k6 for `100s` or turn off Console Exporter writes.
+#### Mock Test 5k Target & Performance Regression Analysis:
+The mock-mode load tests are capped below the 5,000+ requests mark in 35 seconds due to a combination of **WSL2 Docker networking virtualization bottlenecks** and **Python GIL (Global Interpreter Lock) contention**:
+- **WSL2 Socket Delay**: Running 50 concurrent VUs through Docker's bridge network on Windows WSL2 introduces socket queuing delays (adding ~1.1s lag per connection outside the Uvicorn application thread).
+- **OTel Processor Regression Case Study**: We attempted to offload span printing from Uvicorn's event loop to a background thread by swapping `SimpleSpanProcessor` for `BatchSpanProcessor` in [tracing.py](file:///f:/LLM%20Gateway/app/observability/tracing.py#L8). However, this resulted in a performance regression (throughput dropped to **36.15 req/s** and median overhead rose to **116.27 ms**). 
+- *Why?* Creating a background exporter thread in a single-process Python application under high concurrency triggers intense **GIL contention and thread context-switching thrashing** between the main event loop and OTel's background worker. For Python async web servers, console span printing should be disabled entirely in production rather than offloaded to background threads. To exceed 5,000+ requests on local mock runs, increase k6 duration to `100s` or disable Console Exporter writes.
 
 ---
 
