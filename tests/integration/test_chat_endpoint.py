@@ -251,3 +251,73 @@ async def test_hot_reload_rate_limit(client: AsyncClient, redis_client):
         headers={"Authorization": f"Bearer {api_key}"},
     )
     assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_transitions(client: AsyncClient, redis_client):
+    """
+    Integration test verifying the WRITE path state-machine transitions:
+    1. Simulate 5 consecutive provider failures on the primary provider.
+    2. Assert the circuit state in Redis transitions to 'open'.
+    3. Simulate cooldown expiry and check it transitions to 'half_open'.
+    4. Execute a successful request in 'half_open' and verify it transitions back to 'closed'.
+    """
+    import time
+    from unittest.mock import AsyncMock, patch
+
+    from app.providers.base import RetryableProviderError
+
+    team_id, api_key = await create_team_with_access(
+        client,
+        "cb-transition-team",
+        primary_provider="groq",
+        primary_model="openai/gpt-oss-20b",
+        fallback_provider="gemini",
+        fallback_model="gemini-3.6-flash",
+    )
+
+    # Clean start: reset circuits
+    await client.post("/admin/circuits/reset", headers={"Authorization": "Bearer abcd"})
+
+    # Check initially CLOSED in Redis (keys do not exist yet)
+    assert (await redis_client.get("circuit:groq:state")) is None
+
+    # Mock groq client to raise RetryableProviderError
+    mock_fail_client = AsyncMock()
+    mock_fail_client.chat_completion = AsyncMock(side_effect=RetryableProviderError("Mock error", provider="groq"))
+
+    # Patch provider client factory to return failing client for groq
+    with patch("app.api.v1.chat._get_provider_client", return_value=mock_fail_client):
+        # Trigger 5 consecutive failures
+        for _ in range(5):
+            r = await client.post(
+                "/v1/chat/completions",
+                json={"tier": "fast", "messages": [{"role": "user", "content": "hi"}]},
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+            # Response should succeed via fallback (gemini) since gemini is not failing
+            assert r.status_code == 200
+            assert r.json()["was_fallback"] is True
+            assert r.json()["provider"] == "gemini"
+
+    # Assert circuit state in Redis transitioned to 'open'
+    assert (await redis_client.get("circuit:groq:state")) == "open"
+    assert int(await redis_client.get("circuit:groq:failures")) == 5
+
+    # Simulate cooldown expiry by setting cooldown_end to a past timestamp
+    await redis_client.set("circuit:groq:cooldown_end", str(time.time() - 10))
+
+    # Send a request - this will lazily transition state to 'half_open', attempt groq (which succeeds),
+    # and then transition state back to 'closed'.
+    r = await client.post(
+        "/v1/chat/completions",
+        json={"tier": "fast", "messages": [{"role": "user", "content": "hi"}]},
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    assert r.status_code == 200
+    assert r.json()["was_fallback"] is False
+    assert r.json()["provider"] == "groq"
+
+    # Assert circuit state in Redis transitioned back to 'closed'
+    assert (await redis_client.get("circuit:groq:state")) == "closed"
+    assert int(await redis_client.get("circuit:groq:failures")) == 0
