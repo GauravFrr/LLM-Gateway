@@ -1,13 +1,38 @@
+# User configuration
 .env
+docker-compose.override.yml
+
+# Python environments and packages
 .venv/
+env/
+venv/
+ENV/
+bin/
+lib/
+include/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Caches and temporary files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .coverage
 htmlcov/
 dist/
 build/
 *.egg-info/
+
+# Logs
+*.log
+logs/
+
+# IDE and OS files
+.vscode/
+.idea/
 .DS_Store
+Thumbs.db
