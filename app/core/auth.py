@@ -1,10 +1,11 @@
 import hashlib
+
+import redis.asyncio as redis_async
 import structlog
-from fastapi import Request, Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-import redis.asyncio as redis_async
 
 from app.db.session import get_db, get_redis
 from app.models.db import Team
@@ -12,11 +13,12 @@ from app.models.db import Team
 logger = structlog.get_logger()
 security = HTTPBearer(auto_error=False)
 
+
 async def require_auth(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
-    redis_client: redis_async.Redis = Depends(get_redis)
+    redis_client: redis_async.Redis = Depends(get_redis),
 ) -> Team:
     """
     Validates the bearer token against cached Redis hashes and Postgres.
@@ -32,9 +34,9 @@ async def require_auth(
                 "error": {
                     "code": "invalid_api_key",
                     "message": "Authorization header is missing or malformed.",
-                    "request_id": request_id
+                    "request_id": request_id,
                 }
-            }
+            },
         )
 
     token = credentials.credentials
@@ -50,15 +52,13 @@ async def require_auth(
 
     if team_id:
         # Cache hit: Load from DB by team_id to get fresh budget config
-        result = await db.execute(select(Team).where(Team.id == team_id, Team.is_active == True))
+        result = await db.execute(select(Team).where(Team.id == team_id, Team.is_active.is_(True)))
         team = result.scalar_one_or_none()
         if team:
             return team
 
     # 2. Cache miss: Check Postgres directly by key hash
-    result = await db.execute(
-        select(Team).where(Team.api_key_hash == token_hash, Team.is_active == True)
-    )
+    result = await db.execute(select(Team).where(Team.api_key_hash == token_hash, Team.is_active.is_(True)))
     team = result.scalar_one_or_none()
 
     if not team:
@@ -69,9 +69,9 @@ async def require_auth(
                 "error": {
                     "code": "invalid_api_key",
                     "message": "The provided API key is invalid or inactive.",
-                    "request_id": request_id
+                    "request_id": request_id,
                 }
-            }
+            },
         )
 
     # 3. Write back to cache

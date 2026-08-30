@@ -1,11 +1,20 @@
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-exclude = ["verify_*.py"]
+exclude = [
+    ".venv",
+    ".git",
+    "verify_*.py",
+    "tests/load/gateway_load_test.js",
+    "app/db/migrations/**"
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP"]
-ignore = []
+ignore = [
+    "E501", # Line too long
+    "E402"  # Module level import not at top of file
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
