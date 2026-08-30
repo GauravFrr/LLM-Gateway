@@ -136,13 +136,13 @@ To validate performance under load, we ran k6 benchmark scripts under two modes:
 
 | Metric | Mock Provider Mode (`MOCK_PROVIDERS=True`, 50 VUs) | Real Provider Smoke Test (`MOCK_PROVIDERS=False`, Low Load) |
 | :--- | :--- | :--- |
-| **Request Duration (Avg)** | **873.37 ms** *(includes 10ms mock sleep + concurrency queuing)* | **~280 ms** *(Groq)* / **~900 ms** *(Gemini)* |
-| **P50 Gateway Overhead** | **42.48 ms** *(includes db/redis connection queue delay)* | **3.20 ms** *(Pure Gateway processing)* |
-| **P95 Gateway Overhead** | **87.39 ms** *(includes db/redis connection queue delay)* | **6.50 ms** *(Pure Gateway processing)* |
-| **Max Gateway Overhead** | **206.00 ms** | **9.10 ms** |
+| **Request Duration (Avg)** | **912.86 ms** *(includes 10ms mock sleep + telemetry console logging)* | **~280 ms** *(Groq)* / **~900 ms** *(Gemini)* |
+| **Average Gateway Overhead** | **88.58 ms** *(includes telemetry console logging IO overhead)* | **10.33 ms** *(includes first request cold-start latency)* |
+| **Median (P50) Overhead** | **76.77 ms** | **3.20 ms** *(excluding cold start)* |
+| **Max Gateway Overhead** | **562.79 ms** | **14.80 ms** |
 | **Rate Limit Accuracy** | **100%** *(0 requests leaked)* | **100%** *(0 requests leaked)* |
 | **Error Rate %** | **0.00%** *(excluding simulated outage window)* | **0.00%** |
-| **Throughput** | **55.84 requests/sec** | Restricted by provider rate limits |
+| **Throughput** | **53.62 requests/sec** | Restricted by provider rate limits |
 
 *Note: Separating the result sets isolates the gateway's processing overhead under high database connection pool contention (50 concurrent VUs queuing for connections) versus low-concurrency real-provider routing where pure gateway latency remains <10ms.*
 
