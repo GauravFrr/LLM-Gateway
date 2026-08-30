@@ -9,8 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
@@ -66,21 +64,9 @@ jobs:
       # Integration tests run against real Postgres 15 + Redis 7 service containers.
       # Unit tests run in the same environment. MOCK_PROVIDERS=True prevents real API calls.
       env:
-        DATABASE_URL: "postgresql+asyncpg://postgres:postgres@localhost:5432/gateway"
-        REDIS_URL: "redis://localhost:6379/0"
+        DATABASE_URL: "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/gateway"
+        REDIS_URL: "redis://127.0.0.1:6379/0"
         MOCK_PROVIDERS: "True"
         ADMIN_API_KEY: "abcd"
         OTEL_CONSOLE_EXPORT: "False"
-      run: pytest > pytest.log 2>&1
-
-    - name: Push failure log to git
-      if: failure()
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git checkout -b ci-debug-${{ matrix.python-version }} || git checkout ci-debug-${{ matrix.python-version }}
-        git reset --hard origin/main
-        mv pytest.log pytest-failure.log
-        git add pytest-failure.log
-        git commit -m "Add pytest failure log for Python ${{ matrix.python-version }} [skip ci]"
-        git push origin ci-debug-${{ matrix.python-version }} --force
+      run: pytest
