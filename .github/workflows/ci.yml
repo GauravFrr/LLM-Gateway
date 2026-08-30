@@ -13,6 +13,31 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12"]
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gateway
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -26,7 +51,7 @@ jobs:
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install ruff pytest pytest-asyncio httpx aiosqlite
+        pip install ruff pytest pytest-asyncio httpx asyncpg
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     - name: Run Ruff Lint check
@@ -36,12 +61,12 @@ jobs:
       run: ruff format --check .
 
     - name: Run Pytest
-      # Note: CI tests run against SQLite and a mocked Redis for portability/speed.
-      # To run tests against real containers in CI, add a 'services' block to this job
-      # for postgres:15 and redis:7, and update the URLs to point to localhost.
+      # Integration tests run against real Postgres 15 + Redis 7 service containers.
+      # Unit tests run in the same environment. MOCK_PROVIDERS=True prevents real API calls.
       env:
-        DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+        DATABASE_URL: "postgresql+asyncpg://postgres:postgres@localhost:5432/gateway"
         REDIS_URL: "redis://localhost:6379/0"
         MOCK_PROVIDERS: "True"
         ADMIN_API_KEY: "abcd"
+        OTEL_CONSOLE_EXPORT: "False"
       run: pytest
