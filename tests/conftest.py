@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 os.environ.setdefault("MOCK_PROVIDERS", "True")
 os.environ.setdefault("ADMIN_API_KEY", "abcd")
 os.environ.setdefault("OTEL_CONSOLE_EXPORT", "False")
+os.environ.setdefault("GEMINI_API_KEY", "dummy_gemini_key")
+os.environ.setdefault("ANTHROPIC_API_KEY", "dummy_anthropic_key")
+os.environ.setdefault("GROQ_API_KEY", "dummy_groq_key")
 
 from app.config import settings  # noqa: E402
 from app.core.rate_limiter import rate_limiter  # noqa: E402
