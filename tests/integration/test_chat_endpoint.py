@@ -286,8 +286,16 @@ async def test_circuit_breaker_transitions(client: AsyncClient, redis_client):
     mock_fail_client = AsyncMock()
     mock_fail_client.chat_completion = AsyncMock(side_effect=RetryableProviderError("Mock error", provider="groq"))
 
+    # We only want groq to fail; gemini fallback should succeed normally
+    from app.api.v1.chat import _get_provider_client as original_get_provider_client
+
+    def side_effect(provider_name, request_id):
+        if provider_name.lower() == "groq":
+            return mock_fail_client
+        return original_get_provider_client(provider_name, request_id)
+
     # Patch provider client factory to return failing client for groq
-    with patch("app.api.v1.chat._get_provider_client", return_value=mock_fail_client):
+    with patch("app.api.v1.chat._get_provider_client", side_effect=side_effect):
         # Trigger 5 consecutive failures
         for _ in range(5):
             r = await client.post(
