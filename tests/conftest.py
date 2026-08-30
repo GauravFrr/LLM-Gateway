@@ -1,19 +1,20 @@
 import os
+
 import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 import redis.asyncio as redis_async
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Set MOCK_PROVIDERS and ADMIN_API_KEY for all tests before app import
 os.environ.setdefault("MOCK_PROVIDERS", "True")
 os.environ.setdefault("ADMIN_API_KEY", "abcd")
 os.environ.setdefault("OTEL_CONSOLE_EXPORT", "False")
 
-from app.main import app  # noqa: E402 — must come after env setup
 from app.config import settings  # noqa: E402
-from app.db.session import get_db, get_redis  # noqa: E402
-from app.models.db import Base  # noqa: E402
 from app.core.rate_limiter import rate_limiter  # noqa: E402
+from app.db.session import get_db, get_redis  # noqa: E402
+from app.main import app  # noqa: E402 — must come after env setup
+from app.models.db import Base  # noqa: E402
 
 DATABASE_URL = settings.DATABASE_URL
 REDIS_URL = settings.REDIS_URL

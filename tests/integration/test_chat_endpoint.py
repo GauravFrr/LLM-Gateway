@@ -1,9 +1,10 @@
 import datetime
+
 import pytest
 from httpx import AsyncClient
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 async def create_team_with_access(
     client: AsyncClient,
@@ -42,6 +43,7 @@ async def create_team_with_access(
 
 
 # ── tests ─────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_chat_completions_auth(client: AsyncClient):
@@ -170,6 +172,7 @@ async def test_fallback_and_circuit_breaker(client: AsyncClient, redis_client):
     await redis_client.set("circuit:groq:failures", 5)
     # Set cooldown far in the future so it stays open during the test
     import time
+
     await redis_client.set("circuit:groq:cooldown_end", time.time() + 3600)
 
     # 3. Request with groq circuit OPEN → bypasses groq, uses gemini fallback
